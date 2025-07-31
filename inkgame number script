@@ -1,0 +1,103 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local runService = game:GetService("RunService")
+
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "TeleportGui"
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 300, 0, 180)
+frame.Position = UDim2.new(0.5, -150, 0.5, -90)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Draggable = true
+frame.Active = true
+
+local uiCorner = Instance.new("UICorner", frame)
+
+local numberBox = Instance.new("TextBox", frame)
+numberBox.PlaceholderText = "type a number (001-456)"
+numberBox.Size = UDim2.new(1, -20, 0, 40)
+numberBox.Position = UDim2.new(0, 10, 0, 10)
+numberBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+numberBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local nameBox = Instance.new("TextBox", frame)
+nameBox.PlaceholderText = "type your nickname"
+nameBox.Size = UDim2.new(1, -20, 0, 40)
+nameBox.Position = UDim2.new(0, 10, 0, 60)
+nameBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local startButton = Instance.new("TextButton", frame)
+startButton.Text = "Start"
+startButton.Size = UDim2.new(1, -20, 0, 40)
+startButton.Position = UDim2.new(0, 10, 0, 110)
+startButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+startButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+local statusLabel = Instance.new("TextLabel", frame)
+statusLabel.Size = UDim2.new(1, -20, 0, 20)
+statusLabel.Position = UDim2.new(0, 10, 0, 155)
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = ""
+
+local isRunning = false
+local currentCheckThread = nil
+
+startButton.MouseButton1Click:Connect(function()
+	if isRunning then
+		isRunning = false
+		statusLabel.Text = "⏹️ stopped"
+		return
+	end
+
+	local inputNumber = tonumber(numberBox.Text)
+	local targetName = nameBox.Text
+
+	if not inputNumber or inputNumber < 1 or inputNumber > 456 then
+		statusLabel.Text = "⚠️ type the number from 001 to 456!"
+		return
+	end
+
+	if targetName == "" then
+		statusLabel.Text = "⚠️ type your nickname!"
+		return
+	end
+
+	isRunning = true
+	statusLabel.Text = "⏳ checking"
+	
+	currentCheckThread = task.spawn(function()
+		while isRunning do
+			local joinArgs = { [1] = { joining = true } }
+			ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer(unpack(joinArgs))
+
+			task.wait(0.25)
+
+			local targetPlayer = Players:FindFirstChild(targetName)
+			if targetPlayer then
+				local tag = targetPlayer:FindFirstChild("PlayerTagValue")
+				if tag and tag:IsA("IntValue") then
+					if tag.Value == inputNumber then
+						statusLabel.Text = "✅ matched!"
+						player.Character:WaitForChild("HumanoidRootPart").CFrame = CFrame.new(198, 55, 5)
+						isRunning = false
+						break
+					else
+						statusLabel.Text = "❌ didnt matched... (" .. tostring(tag.Value) .. ")"
+						local leaveArgs = { [1] = { buttonname = "leave" } }
+						ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer(unpack(leaveArgs))
+					end
+				else
+					statusLabel.Text = "⚠️ cant check the value for " .. targetName
+				end
+			else
+				statusLabel.Text = "⚠️ player " .. targetName .. " not found"
+			end
+
+			task.wait(0.4)
+		end
+	end)
+end)
